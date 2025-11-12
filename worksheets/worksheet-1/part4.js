@@ -1,53 +1,26 @@
 window.onload = async function main() {
-  if (!navigator.gpu) {
-    alert("WebGPU not supported on this browser.");
-    return;
-  }
+  const { device, context, format, canvasHeight, canvasWidth } =
+    await initWebGPU();
 
-  //  Adapter & Device
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
+  //  Quad vertices (centered at 0,0)
+  const positions = new Float32Array([
+    -0.5,
+    -0.5, // bottom-left
+    0.5,
+    -0.5, // bottom-right
+    -0.5,
+    0.5, // top-left
+    0.5,
+    -0.5, // bottom-right
+    0.5,
+    0.5, // top-right
+    -0.5,
+    0.5, // top-left
+  ]);
 
-  //  Canvas setup
-  const canvas = document.getElementById("canvas");
-  const context = canvas.getContext("webgpu");
-  const format = navigator.gpu.getPreferredCanvasFormat();
-
-  context.configure({
-    device: device,
-    format: format,
-    alphaMode: "opaque",
-  });
-
-  //  Helper: generate circle vertices
-  function createCircleVertices(radius = 0.2, segments = 50) {
-    const vertices = [];
-    const center = [0, 0];
-    for (let i = 0; i < segments; i++) {
-      const theta1 = (i / segments) * 2 * Math.PI;
-      const theta2 = ((i + 1) / segments) * 2 * Math.PI;
-
-      const x1 = radius * Math.cos(theta1);
-      const y1 = radius * Math.sin(theta1);
-      const x2 = radius * Math.cos(theta2);
-      const y2 = radius * Math.sin(theta2);
-
-      vertices.push(...center, x1, y1, x2, y2); // triangle
-    }
-    return new Float32Array(vertices);
-  }
-
-  function createCircleColors(segments = 50, color = [1, 0, 0]) {
-    const colors = [];
-    for (let i = 0; i < segments; i++) {
-      colors.push(...color, ...color, ...color); // 3 vertices per triangle
-    }
-    return new Float32Array(colors);
-  }
-
-  const segments = 50;
-  const positions = createCircleVertices(0.2, segments);
-  const colors = createCircleColors(segments, [1, 1, 1]); // red
+  const colors = new Float32Array([
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  ]);
 
   //  Create GPU buffers
   const positionBuffer = device.createBuffer({
@@ -66,13 +39,13 @@ window.onload = async function main() {
   new Float32Array(colorBuffer.getMappedRange()).set(colors);
   colorBuffer.unmap();
 
-  //  Uniform buffer for y-offset
+  //  Uniform buffer for rotation
   const uniformBuffer = device.createBuffer({
-    size: 4, // single float
+    size: 4, // single float for angle
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  //  Bind group
+  //  Bind group layout
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
       {
@@ -88,23 +61,31 @@ window.onload = async function main() {
     entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
   });
 
-  //  WGSL Shader
+  //  WGSL shader (with rotation)
   const shaderCode = `
     struct Uniforms {
-      yOffset: f32,
+      angle: f32,
     };
     @binding(0) @group(0) var<uniform> uniforms: Uniforms;
 
     struct VertexOutput {
-      @builtin(position) position: vec4f,
-      @location(0) color: vec3f,
+      @builtin(position) position : vec4f,
+      @location(0) color : vec3f,
     };
 
     @vertex
-    fn vs_main(@location(0) inPos: vec2f,
-               @location(1) inColor: vec3f) -> VertexOutput {
+    fn vs_main(
+      @location(0) inPos: vec2f,
+      @location(1) inColor: vec3f
+    ) -> VertexOutput {
       var output: VertexOutput;
-      output.position = vec4f(inPos.x, inPos.y + uniforms.yOffset, 0.0, 1.0);
+      let cosA = cos(uniforms.angle);
+      let sinA = sin(uniforms.angle);
+      let rotated = vec2f(
+        inPos.x * cosA - inPos.y * sinA,
+        inPos.x * sinA + inPos.y * cosA
+      );
+      output.position = vec4f(rotated, 0.0, 1.0);
       output.color = inColor;
       return output;
     }
@@ -145,15 +126,10 @@ window.onload = async function main() {
   });
 
   //  Animation loop
-  let yOffset = 0;
-  let direction = 1; // 1 = down, -1 = up
-  const speed = 0.01;
-
+  let angle = 0;
   function frame() {
-    yOffset += speed * direction;
-    if (yOffset > 0.5 || yOffset < -0.5) direction *= -1;
-
-    device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([yOffset]));
+    angle += 0.04; // rotation speed
+    device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([angle]));
 
     const commandEncoder = device.createCommandEncoder();
     const textureView = context.getCurrentTexture().createView();
@@ -174,7 +150,7 @@ window.onload = async function main() {
     passEncoder.setBindGroup(0, bindGroup);
     passEncoder.setVertexBuffer(0, positionBuffer);
     passEncoder.setVertexBuffer(1, colorBuffer);
-    passEncoder.draw(segments * 3); // 3 vertices per triangle
+    passEncoder.draw(6); // 2 triangles
     passEncoder.end();
 
     device.queue.submit([commandEncoder.finish()]);

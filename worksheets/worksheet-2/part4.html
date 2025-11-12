@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script type="text/javascript" src="../common/initWebGPU.js"></script>
+    <script type="text/javascript" src="../common/makeSquare.js"></script>
+    <script type="module" src="part4.js"></script>
+  </head>
+  <body>
+    <canvas
+      style="display: block"
+      id="canvas"
+      width="512"
+      height="512"
+    ></canvas>
+    <h3>Mode</h3>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <button id="point-mode">Point</button>
+      <button id="triangle-mode">Triangle</button>
+      <button id="circle-mode">Circle</button>
+    </div>
+    <h3>Options</h3>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <select id="colorMenu">
+        <option value="0" selected>Black</option>
+        <option value="1">Red</option>
+        <option value="2">Yellow</option>
+        <option value="3">Green</option>
+        <option value="4">Blue</option>
+        <option value="5">Magenta</option>
+      </select>
+      <button id="clear-btn">Clear canvas</button>
+    </div>
+  </body>
+</html>

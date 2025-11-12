@@ -1,25 +1,6 @@
 window.onload = async function main() {
-  if (!navigator.gpu) {
-    alert("WebGPU not supported on this browser.");
-    return;
-  }
-
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
-
-  const canvas = document.getElementById("canvas");
-  const context = canvas.getContext("webgpu");
-  const format = navigator.gpu.getPreferredCanvasFormat();
-
-  context.configure({
-    device: device,
-    format: format,
-    alphaMode: "opaque",
-  });
-
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-
+  const { device, context, format, canvasHeight, canvasWidth } =
+    await initWebGPU();
   function px(x, y) {
     return [(x / canvasWidth) * 2 - 1, (y / canvasHeight) * -2 + 1];
   }
@@ -121,15 +102,15 @@ window.onload = async function main() {
     ],
   };
 
-  const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+  const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
 
-  passEncoder.setPipeline(pipeline);
-  passEncoder.setVertexBuffer(0, positionBuffer);
-  passEncoder.setVertexBuffer(1, colorBuffer);
+  pass.setPipeline(pipeline);
+  pass.setVertexBuffer(0, positionBuffer);
+  pass.setVertexBuffer(1, colorBuffer);
 
-  passEncoder.draw(3); // 3 vertices
+  pass.draw(3); // 3 vertices
 
-  passEncoder.end();
+  pass.end();
 
   device.queue.submit([commandEncoder.finish()]);
 };

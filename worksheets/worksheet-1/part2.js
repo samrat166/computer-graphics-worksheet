@@ -1,26 +1,6 @@
 window.onload = async function main() {
-  if (!navigator.gpu) {
-    alert("WebGPU not supported on this browser.");
-    return;
-  }
-
-  // Get GPU adapter & device
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
-
-  // Configure the canvas
-  const canvas = document.getElementById("canvas");
-  const context = canvas.getContext("webgpu");
-  const format = navigator.gpu.getPreferredCanvasFormat();
-
-  context.configure({
-    device: device,
-    format: format,
-    alphaMode: "opaque",
-  });
-
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
+  const { device, context, format, canvasHeight, canvasWidth } =
+    await initWebGPU();
 
   function px(x, y) {
     return [(x / canvasWidth) * 2 - 1, (y / canvasHeight) * -2 + 1];
@@ -67,7 +47,7 @@ window.onload = async function main() {
 
     @fragment
     fn fs_main() -> @location(0) vec4f {
-      return vec4f(0.0, 0.0, 0.0, 1.0); // constant black
+      return vec4f(0.0, 0.0, 0.0, 1.0); 
     }
   `;
 
@@ -111,11 +91,11 @@ window.onload = async function main() {
     ],
   };
 
-  const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  passEncoder.setPipeline(pipeline);
-  passEncoder.setVertexBuffer(0, vertexBuffer);
-  passEncoder.draw(points.length / 2);
-  passEncoder.end();
+  const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
+  pass.setPipeline(pipeline);
+  pass.setVertexBuffer(0, vertexBuffer);
+  pass.draw(points.length / 2);
+  pass.end();
 
   device.queue.submit([commandEncoder.finish()]);
 };
