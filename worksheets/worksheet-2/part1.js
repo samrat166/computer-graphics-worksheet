@@ -67,7 +67,7 @@ window.onload = async function main() {
       colorAttachments: [
         {
           view: context.getCurrentTexture().createView(),
-          clearValue: { r: 0.3921, g: 0.5843, b: 0.9294, a: 1.0 }, // background
+          clearValue: { r: 0.3921, g: 0.5843, b: 0.9294, a: 1.0 }, 
           loadOp: "clear",
           storeOp: "store",
         },

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+        line-height: 1.6;
+      }
+      h2 {
+        margin-top: 1.5rem;
+      }
+      code {
+        background: #d4d4d4;
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Affine & Viewing Transformations</h1>
+
+    <h2>Part 1: Wireframe Cube (Isometric)</h2>
+    <ul>
+      <li>View Matrix: <code>V = lookAt(eye, at, up)</code></li>
+      <li>Projection Matrix: <code>P = orthographic(...)</code></li>
+      <li>Model Matrix: <code>M = identity</code></li>
+      <li>
+        Composite Transformation Matrix (CTM): <code>CTM = P * V * M</code>
+      </li>
+    </ul>
+
+    <h2>Part 2: Cubes in Perspective Views</h2>
+    <ul>
+      <li>
+        <strong>Cube 1 (1-point perspective)</strong>:
+        <code>CTM = P * V * M</code> where <code>P = perspective(...)</code>,
+        <code>V = lookAt(...)</code>, <code>M = identity</code>
+      </li>
+      <li>
+        <strong>Cube 2 (2-point perspective)</strong>:
+        <code>CTM = P * V * M</code> where <code>P = perspective(...)</code>,
+        <code>V = translate(...)</code>, <code>M = identity</code>
+      </li>
+      <li>
+        <strong>Cube 3 (3-point perspective)</strong>:
+        <code>CTM = P * V * M</code> where <code>P = perspective(...)</code>,
+        <code>V = rotateX(...) * rotateY(...) * translate(...)</code>,
+        <code>M = identity</code>
+      </li>
+    </ul>
+  </body>
+</html>
