@@ -2,52 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <style>
-      body {
-        font-family: sans-serif;
-        margin: 2rem;
-        line-height: 1.6;
-      }
-      h2 {
-        margin-top: 1.5rem;
-      }
-      code {
-        background: #d4d4d4;
-        padding: 2px 4px;
-        border-radius: 4px;
-      }
-    </style>
+    <title>Affine & Viewing Transformations</title>
   </head>
   <body>
     <h1>Affine & Viewing Transformations</h1>
 
-    <h2>Part 1: Wireframe Cube (Isometric)</h2>
+    <h2>Part 1: Single Cube</h2>
     <ul>
-      <li>View Matrix: <code>V = lookAt(eye, at, up)</code></li>
-      <li>Projection Matrix: <code>P = orthographic(...)</code></li>
-      <li>Model Matrix: <code>M = identity</code></li>
+      <li>View Matrix: V = lookAt(eye, at, up)</li>
+      <li>Projection Matrix: P = perspective(fovy, aspect, near, far)</li>
+      <li>Model Matrix: M = translate(tx, ty, tz)</li>
+      <li>Composite Matrix: CTM = P * V * M</li>
+    </ul>
+
+    <h2>Part 2: Three Cubes</h2>
+    <ul>
+      <li>Cube 1: M = translate(0.0, 0.0, 0.0), CTM = P * V * M</li>
+      <li>Cube 2: M = translate(1.5, 0.0, 0.0), CTM = P * V * M</li>
       <li>
-        Composite Transformation Matrix (CTM): <code>CTM = P * V * M</code>
+        Cube 3: M = translate(-1.5, 0.0, 0.0) * rotateX(angle), CTM = P * V * M
       </li>
     </ul>
 
-    <h2>Part 2: Cubes in Perspective Views</h2>
+    <h2>Notes</h2>
     <ul>
+      <li>M = model matrix, positions/rotates the cube</li>
+      <li>V = view matrix, sets camera position and direction</li>
+      <li>P = projection matrix, applies perspective</li>
       <li>
-        <strong>Cube 1 (1-point perspective)</strong>:
-        <code>CTM = P * V * M</code> where <code>P = perspective(...)</code>,
-        <code>V = lookAt(...)</code>, <code>M = identity</code>
-      </li>
-      <li>
-        <strong>Cube 2 (2-point perspective)</strong>:
-        <code>CTM = P * V * M</code> where <code>P = perspective(...)</code>,
-        <code>V = translate(...)</code>, <code>M = identity</code>
-      </li>
-      <li>
-        <strong>Cube 3 (3-point perspective)</strong>:
-        <code>CTM = P * V * M</code> where <code>P = perspective(...)</code>,
-        <code>V = rotateX(...) * rotateY(...) * translate(...)</code>,
-        <code>M = identity</code>
+        CTM = P * V * M transforms vertices from model space to clip space
       </li>
     </ul>
   </body>

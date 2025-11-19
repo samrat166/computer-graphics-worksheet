@@ -1,12 +1,17 @@
 window.addEventListener("load", async () => {
   const { device, context, format } = await initWebGPU("canvas");
 
+  // -------------------
+  // Vertex + Index Data
+  // -------------------
   const vertices = new Float32Array([
-    0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
+    -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5,
+
+    -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5,
   ]);
 
   const indices = new Uint16Array([
-    0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7,
+    1, 0, 1, 2, 3, 0, 3, 2, 2, 6, 6, 5, 5, 1, 0, 4, 4, 5, 6, 7, 7, 3, 4, 7,
   ]);
 
   const vertexBuffer = device.createBuffer({
@@ -21,105 +26,112 @@ window.addEventListener("load", async () => {
   });
   device.queue.writeBuffer(indexBuffer, 0, indices);
 
-  const M = mat4();
+  // -------------------
+  // ANGEL.JS MATRICES
+  // -------------------
 
-  // View: isometric
-  const eye = vec3(3, 3, 3);
-  const at = vec3(0.5, 0.5, 0.5);
-  const up = vec3(0, 1, 0);
-  const V = lookAt(eye, at, up);
+  const eye = vec3(0.0, 0.0, 3.0);
+  const at = vec3(0.0, 0.0, 0.0);
+  const up = vec3(0.0, 1.0, 0.0);
 
-  const P = ortho(-1, 2, -1, 2, 0.1, 10);
+  const viewMatrix = lookAt(eye, at, up);
+  const projMatrix = perspective(45, canvas.width / canvas.height, 0.1, 100);
 
-  // MVP = P * V * M
-  const MVP = mult(P, mult(V, M));
+  // model = translate(0.5, 0.5, 0)
+  const modelMatrix = translate(0.5, 0.5, 0.0);
 
-  function flattenColumnMajor(m) {
-    const fm = new Float32Array(16);
-    for (let i = 0; i < 4; i++)
-      for (let j = 0; j < 4; j++) fm[i + j * 4] = m[i][j];
-    return fm;
-  }
+  // final = projection * view * model
+  const mvpMatrix = mult(projMatrix, mult(viewMatrix, modelMatrix));
+  const mvpArray = new Float32Array(flatten(mvpMatrix));
 
-  const mvpBuffer = device.createBuffer({
-    size: 16 * 4,
+  const uniformBuffer = device.createBuffer({
+    size: mvpArray.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(mvpBuffer, 0, flattenColumnMajor(MVP));
+  device.queue.writeBuffer(uniformBuffer, 0, mvpArray);
 
-  // Shader
-  const shaderCode = `
-struct Uniforms {
-  mvp : mat4x4<f32>
-};
+  // -------------------
+  // Render Pipeline
+  // -------------------
+  const shaderModule = device.createShaderModule({
+    code: `
+            struct Uniforms {
+                mvp : mat4x4f
+            };
+            @group(0) @binding(0)
+            var<uniform> uniforms : Uniforms;
 
-@group(0) @binding(0) var<uniform> uniforms : Uniforms;
+            struct VSOut {
+                @builtin(position) Position : vec4f
+            };
 
-struct VSOut {
-  @builtin(position) Position : vec4<f32>
-};
+            @vertex
+            fn vs(@location(0) pos : vec3f) -> VSOut {
+                var out : VSOut;
+                out.Position = uniforms.mvp * vec4f(pos, 1.0);
+                return out;
+            }
 
-@vertex
-fn vs_main(@location(0) pos : vec3<f32>) -> VSOut {
-  var out : VSOut;
-  out.Position = uniforms.mvp * vec4<f32>(pos, 1.0);
-  return out;
-}
-
-@fragment
-fn fs_main() -> @location(0) vec4<f32> {
-  return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-}
-
-`;
+            @fragment
+            fn fs() -> @location(0) vec4f {
+                return vec4f(1.0, 1.0, 1.0, 1.0);
+            }
+        `,
+  });
 
   const pipeline = device.createRenderPipeline({
     layout: "auto",
     vertex: {
-      module: device.createShaderModule({ code: shaderCode }),
-      entryPoint: "vs_main",
+      module: shaderModule,
+      entryPoint: "vs",
       buffers: [
         {
-          arrayStride: 12,
+          arrayStride: 3 * 4,
           attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }],
         },
       ],
     },
     fragment: {
-      module: device.createShaderModule({ code: shaderCode }),
-      entryPoint: "fs_main",
+      module: shaderModule,
+      entryPoint: "fs",
       targets: [{ format }],
     },
-    primitive: { topology: "line-list", cullMode: "none" },
+    primitive: {
+      topology: "line-list",
+    },
   });
 
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: mvpBuffer } }],
+    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
   });
 
-  function render() {
+  // -------------------
+  // Render Loop
+  // -------------------
+  function frame() {
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
       colorAttachments: [
         {
           view: context.getCurrentTexture().createView(),
-          clearValue: { r: 0.3921, g: 0.5843, b: 0.9294, a: 1.0 },
           loadOp: "clear",
           storeOp: "store",
+          clearValue: { r: 0.3921, g: 0.5843, b: 0.9294, a: 1 },
         },
       ],
     });
 
     pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bindGroup);
     pass.setVertexBuffer(0, vertexBuffer);
     pass.setIndexBuffer(indexBuffer, "uint16");
+    pass.setBindGroup(0, bindGroup);
     pass.drawIndexed(indices.length);
     pass.end();
 
     device.queue.submit([encoder.finish()]);
+    requestAnimationFrame(frame);
   }
 
-  render();
+  frame();
 });
